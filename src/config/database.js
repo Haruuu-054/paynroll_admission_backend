@@ -8,7 +8,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'paynroll',
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 100,
   queueLimit: 0
 });
 
