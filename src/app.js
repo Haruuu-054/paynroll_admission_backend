@@ -8,6 +8,7 @@ const documentRoutes = require('./routes/documentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const admissionRoutes = require("./routes/admissions");
+const emailRoutes = require("./routes/emailRoutes");
 
 const app = express();
 
@@ -37,6 +38,8 @@ app.use('/api/applicants', applicantRoutes);
 app.use("/api/admission", applicantRoutes);
 app.use('/api/document/upload/psa', applicantRoutes);
 app.use('/api/docs', applicantRoutes);
+app.use("/api/email", emailRoutes);
+
 
 // Health check
 app.get('/api/health', (req, res) => {

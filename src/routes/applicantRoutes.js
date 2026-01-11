@@ -4,6 +4,17 @@ const db = require('../config/database');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+// Configure Nodemailer
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // Use 'gmail' or your SMTP provider
+  auth: {
+    user: 'paynrollsuper@gmail.com', // Replace with your email
+    pass: 'lnno cegy ufpd xcan'     // Replace with your App Password
+  }
+});
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
@@ -59,7 +70,8 @@ router.get("/count", async (req, res) => {
     );
     res.json({ total_admissions: rows[0].total });
   } catch (error) {
-    next(error);
+    console.error("Database error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -87,8 +99,32 @@ router.get('/count/accepted', async (req, res, next) => {
   }
 });
 
-// GET accepted applicants
+// GET rejected applicants count
 router.get('/count/rejected', async (req, res, next) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT COUNT(*) AS rejected_count FROM applicants WHERE applicant_status = "rejected"'
+    );
+    res.json(rows);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET all accepted applicants list
+router.get('/accepted', async (req, res, next) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM applicants WHERE applicant_status = "accepted"'
+    );
+    res.json(rows);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET all rejected applicants list
+router.get('/rejected', async (req, res, next) => {
   try {
     const [rows] = await db.query(
       'SELECT * FROM applicants WHERE applicant_status = "rejected"'
@@ -239,7 +275,7 @@ router.patch("/status/:admissionId", async (req, res) => {
   console.log("🔴 Body:", req.body);
 
   const { admissionId } = req.params;
-  const { status } = req.body;
+  const { status, note } = req.body;
 
   const validStatuses = ["accepted", "rejected"];
   if (!validStatuses.includes(status)) {
@@ -259,13 +295,6 @@ router.patch("/status/:admissionId", async (req, res) => {
       [status, admissionId]
     );
 
-    // If no rows were affected, applicant does not exist
-    if (updateResult.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Applicant not found." });
-    }
-
     // 2️⃣ Fetch updated row (similar to Supabase .select())
     const [rows] = await db.execute(
       `
@@ -275,6 +304,48 @@ router.patch("/status/:admissionId", async (req, res) => {
       `,
       [admissionId]
     );
+
+    // Check if applicant exists
+    if (rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Applicant not found." });
+    }
+
+    // 3️⃣ Send Email Notification
+    if (rows.length > 0) {
+      const applicant = rows[0];
+      if (applicant.email) {
+        const mailOptions = {
+          from: 'paynrollsuper@gmail.com', // Sender address
+          to: applicant.email,
+          subject: `Application Status Update: ${status.toUpperCase()}`,
+          text: `Dear ${applicant.firstname} ${applicant.lastname},\n\n` +
+                `Your application status has been updated to: ${status}.\n\n` +
+                (note ? `Note from Admissions: ${note}\n\n` : '') +
+                `Best regards,\nAdmissions Team`
+        };
+
+        try {
+          await transporter.sendMail(mailOptions);
+          console.log(`Email notification sent to ${applicant.email}`);
+        } catch (emailError) {
+          console.error("Failed to send email notification:", emailError);
+        }
+
+        // 4️⃣ Save Notification to Database
+        try {
+          const notification_id = crypto.randomUUID();
+          const message = `Your application status has been updated to: ${status}.` + (note ? ` Note: ${note}` : '');
+          await db.query(
+            'INSERT INTO applicant_notifications (notification_id, admission_id, message, notification_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+            [notification_id, admissionId, message, 'info', 0]
+          );
+        } catch (notifError) {
+          console.error("Failed to save notification:", notifError);
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -504,5 +575,159 @@ router.get('/documents/admission/:admission_id', async (req, res) => {
     });
   }
 });
+
+// Fetch only the 2x2 picture for a specific admission_id
+router.get('/documents/photo/:admission_id', async (req, res) => {
+  const { admission_id } = req.params;
+  
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM applicant_documents WHERE admission_id = ? AND document_type = '2x2_picture' ORDER BY uploaded_at DESC LIMIT 1", 
+      [admission_id]
+    );
+    
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Photo not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      photo: results[0]
+    });
+  } catch (err) {
+    console.error('Error fetching photo:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch photo',
+      details: err.message 
+    });
+  }
+});
+
+// Fetch only the birth certificate for a specific admission_id
+router.get('/documents/birth-certificate/:admission_id', async (req, res) => {
+  const { admission_id } = req.params;
+  
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM applicant_documents WHERE admission_id = ? AND document_type = 'birth_certificate' ORDER BY uploaded_at DESC LIMIT 1", 
+      [admission_id]
+    );
+    
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Birth certificate not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      document: results[0]
+    });
+  } catch (err) {
+    console.error('Error fetching birth certificate:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch birth certificate',
+      details: err.message 
+    });
+  }
+});
+
+// Fetch only the diploma (form137) for a specific admission_id
+router.get('/documents/diploma/:admission_id', async (req, res) => {
+  const { admission_id } = req.params;
+  
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM applicant_documents WHERE admission_id = ? AND document_type = 'form137' ORDER BY uploaded_at DESC LIMIT 1", 
+      [admission_id]
+    );
+    
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Diploma not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      document: results[0]
+    });
+  } catch (err) {
+    console.error('Error fetching diploma:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch diploma',
+      details: err.message 
+    });
+  }
+});
+
+// Fetch only the TOR (shs_transcript) for a specific admission_id
+router.get('/documents/tor/:admission_id', async (req, res) => {
+  const { admission_id } = req.params;
+  
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM applicant_documents WHERE admission_id = ? AND document_type = 'shs_transcript' ORDER BY uploaded_at DESC LIMIT 1", 
+      [admission_id]
+    );
+    
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'TOR not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      document: results[0]
+    });
+  } catch (err) {
+    console.error('Error fetching TOR:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch TOR',
+      details: err.message 
+    });
+  }
+});
+
+// Helper function to serve file content directly
+const serveFileContent = async (req, res, documentType) => {
+  const { admission_id } = req.params;
+  
+  try {
+    const [results] = await db.query(
+      "SELECT file_path FROM applicant_documents WHERE admission_id = ? AND document_type = ? ORDER BY uploaded_at DESC LIMIT 1", 
+      [admission_id, documentType]
+    );
+    
+    if (results.length === 0) {
+      return res.status(404).send('Document not found');
+    }
+    
+    const filePath = results[0].file_path;
+    
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).send('File not found on server');
+    }
+  } catch (err) {
+    console.error(`Error serving ${documentType}:`, err);
+    res.status(500).send('Error serving file');
+  }
+};
+
+// Serve the actual file content (for <img> tags or direct viewing)
+router.get('/documents/view/photo/:admission_id', (req, res) => serveFileContent(req, res, '2x2_picture'));
+router.get('/documents/view/birth-certificate/:admission_id', (req, res) => serveFileContent(req, res, 'birth_certificate'));
+router.get('/documents/view/diploma/:admission_id', (req, res) => serveFileContent(req, res, 'form137'));
+router.get('/documents/view/tor/:admission_id', (req, res) => serveFileContent(req, res, 'shs_transcript'));
+
 
 module.exports = router;

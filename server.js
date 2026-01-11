@@ -1,5 +1,8 @@
 require('dotenv').config();
 const app = require('./src/app');
+const emailRoutes = require('./src/routes/emailRoutes');
+
+app.use('/api/email', emailRoutes);
 
 const PORT = process.env.PORT || 5000;
 
