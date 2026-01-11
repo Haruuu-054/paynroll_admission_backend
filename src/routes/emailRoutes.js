@@ -6,11 +6,14 @@ const crypto = require('crypto');
 
 // Configure Nodemailer
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: 'paynrollsuper@gmail.com',
-    pass: 'lnno cegy ufpd xcan'
-  }
+    user: process.env.EMAIL_USER || 'paynrollsuper@gmail.com',
+    pass: process.env.EMAIL_PASS || 'lnno cegy ufpd xcan'
+  },
+  family: 4 // Force IPv4 to prevent connection timeouts
 });
 
 // POST /send-email

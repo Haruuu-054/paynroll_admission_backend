@@ -8,44 +8,20 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'paynroll',
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 2, // Changed from 5 to 2
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 5,
+  queueLimit: 0
 });
 
 const promisePool = pool.promise();
 
-// Test connection with proper cleanup
-const testConnection = async () => {
-  let connection;
-  try {
-    connection = await promisePool.getConnection();
-    await connection.query('SELECT 1');
+// Test connection
+promisePool.query('SELECT 1')
+  .then(() => {
     console.log('✅ MySQL Database connected successfully');
-  } catch (error) {
+  })
+  .catch((error) => {
     console.error('❌ Database connection failed:', error.message);
-    // Don't exit immediately in production, allow retries
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
-  } finally {
-    if (connection) connection.release();
-  }
-};
-
-testConnection();
-
-// Graceful shutdown
-process.on('SIGINT', () => {
-  pool.end((err) => {
-    if (err) {
-      console.error('Error closing database pool:', err);
-    } else {
-      console.log('Database pool closed');
-    }
-    process.exit(err ? 1 : 0);
+    process.exit(1);
   });
-});
 
 module.exports = promisePool;
