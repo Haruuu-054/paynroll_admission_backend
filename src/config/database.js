@@ -8,8 +8,11 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'paynroll',
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 5,
-  queueLimit: 0
+  // Lower limit to 2 to prevent "max_user_connections" errors during deployments
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 2,
+  queueLimit: 0,
+  enableKeepAlive: true, // Prevents "read ECONNRESET" errors
+  keepAliveInitialDelay: 0
 });
 
 const promisePool = pool.promise();
