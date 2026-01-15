@@ -10,13 +10,14 @@ const crypto = require('crypto');
 // Configure Nodemailer
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER || 'paynrollsuper@gmail.com', // Replace with your email
     pass: process.env.EMAIL_PASS || 'lnno cegy ufpd xcan'     // Replace with your App Password
   },
-  family: 4 // Force IPv4 to prevent connection timeouts
+  family: 4, // Force IPv4 to prevent connection timeouts
+  connectionTimeout: 10000 // Fail fast (10s) if connection cannot be established
 });
 
 // Configure Multer Storage
