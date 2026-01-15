@@ -415,18 +415,22 @@ router.post('/insert', async (req, res, next) => {
       });
     }
 
+    // Generate a unique admission ID in the application to avoid database race conditions.
+    // The database trigger 'trg_generate_admission_id' should be removed.
+    const admission_id = `ADM-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+
     const [result] = await db.query(
       `INSERT INTO applicants (
-        lastname, firstname, middlename, suffix, birth_date, age, birth_place,
+        admission_id, lastname, firstname, middlename, suffix, birth_date, age, birth_place,
         gender, citizenship, civil_status, religion, ethnicity,
         street, barangay, municipality, province, home_address, mobile_number, email,
         last_school_attended, strand_taken, school_type, year_graduated, school_address,
         father_name, father_occupation, mother_name, mother_occupation,
         parent_number, family_income,
         preferred_course, alternate_course_1, alternate_course_2
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        lastname, firstname, middlename, suffix, birth_date, age, birth_place,
+        admission_id, lastname, firstname, middlename, suffix, birth_date, age, birth_place,
         gender, citizenship, civil_status, religion, ethnicity,
         street, barangay, municipality, province, home_address, mobile_number, email,
         last_school_attended, strand_taken, school_type, year_graduated, school_address,
@@ -439,7 +443,7 @@ router.post('/insert', async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Student enrollment data inserted successfully',
-      admission_id: result.insertId
+      admission_id: admission_id
     });
 
   } catch (error) {
