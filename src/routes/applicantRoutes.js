@@ -698,24 +698,47 @@ const serveFileContent = async (req, res, documentType) => {
   
   try {
     const [results] = await db.query(
-      "SELECT file_path FROM applicant_documents WHERE admission_id = ? AND document_type = ? ORDER BY uploaded_at DESC LIMIT 1", 
+      "SELECT file_path, mime_type FROM applicant_documents WHERE admission_id = ? AND document_type = ? ORDER BY uploaded_at DESC LIMIT 1", 
       [admission_id, documentType]
     );
     
     if (results.length === 0) {
-      return res.status(404).send('Document not found');
+      return res.status(404).json({
+        success: false,
+        error: 'Document not found in database'
+      });
     }
     
     const filePath = results[0].file_path;
+    const mimeType = results[0].mime_type;
     
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
-      res.status(404).send('File not found on server');
+    // Convert to absolute path using path.resolve()
+    const absolutePath = path.resolve(filePath);
+    
+    // Check if file exists
+    if (!fs.existsSync(absolutePath)) {
+      console.error(`File not found: ${absolutePath}`);
+      return res.status(404).json({
+        success: false,
+        error: 'File not found on server',
+        expectedPath: absolutePath,
+        databasePath: filePath
+      });
     }
+    
+    // Set content type
+    res.contentType(mimeType);
+    
+    // Send file with absolute path
+    res.sendFile(absolutePath);
+    
   } catch (err) {
     console.error(`Error serving ${documentType}:`, err);
-    res.status(500).send('Error serving file');
+    res.status(500).json({
+      success: false,
+      error: 'Error serving file',
+      details: err.message
+    });
   }
 };
 
@@ -727,3 +750,4 @@ router.get('/documents/view/tor/:admission_id', (req, res) => serveFileContent(r
 
 
 module.exports = router;
+
