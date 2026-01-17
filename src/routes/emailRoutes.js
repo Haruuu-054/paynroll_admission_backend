@@ -49,9 +49,9 @@ router.post('/send-email', async (req, res) => {
 
     const msg = {
       to: recipientEmail,
-      from: process.env.EMAIL_FROM || 'admissions@example.com', // Ensure this matches your verified SendGrid sender
-      subject: subject || 'Message from Admissions Team',
-      html: `<p>Dear ${recipientName},</p><p>${note}</p><p>Best regards,<br>Admissions Team</p>`
+      from: process.env.EMAIL_FROM || 'houtaruyuki@gmail.com', // Ensure this matches your verified SendGrid sender
+      subject: subject || 'Message from MSEUF-CI Admission Registrar',
+      html: `<p>Dear ${recipientName},</p><p>${note}</p><p>Best regards,<br>MSEUF-CI Registrar</p>`
     };
     await sgMail.send(msg);
 
@@ -160,5 +160,6 @@ router.get('/notes/:admission_id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch notes.', error: error.message });
   }
 });
+
 
 module.exports = router;
