@@ -1,21 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const db = require('../config/database');
 const crypto = require('crypto');
 
-// Configure Nodemailer
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER || 'paynrollsuper@gmail.com',
-    pass: process.env.EMAIL_PASS || 'lnno cegy ufpd xcan'
-  },
-  family: 4, // Force IPv4 to prevent connection timeouts
-  connectionTimeout: 10000 // Fail fast (10s) if connection cannot be established
-});
+const resend = new Resend('re_46kKjnbb_NoYHdMnnTyYKJipDk5CdrK29');
 
 // POST /send-email
 router.post('/send-email', async (req, res) => {
@@ -58,19 +47,21 @@ router.post('/send-email', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Recipient email is required.' });
     }
 
-    const mailOptions = {
-      from: 'paynrollsuper@gmail.com',
+    const { data, error } = await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: recipientEmail,
       subject: subject || 'Message from Admissions Team',
-      text: `Dear ${recipientName},\n\n${note}\n\nBest regards,\nAdmissions Team`
-    };
+      html: `<p>Dear ${recipientName},</p><p>${note}</p><p>Best regards,<br>Admissions Team</p>`
+    });
 
-    const emailResult = await transporter.sendMail(mailOptions);
+    if (error) {
+      throw new Error(error.message);
+    }
+
     console.log(`✅ Email sent successfully to ${recipientEmail}`);
     console.log(`📧 Email details:`, {
-      messageId: emailResult.messageId,
-      response: emailResult.response,
-      subject: mailOptions.subject,
+      id: data.id,
+      subject: subject || 'Message from Admissions Team',
       note: note
     });
 
