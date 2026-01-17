@@ -4,10 +4,10 @@ const db = require('../config/database');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { Resend } = require('resend');
+const sgMail = require('@sendgrid/mail');
 const crypto = require('crypto');
 
-const resend = new Resend('re_46kKjnbb_NoYHdMnnTyYKJipDk5CdrK29');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
@@ -310,17 +310,16 @@ router.patch("/status/:admissionId", async (req, res) => {
       const applicant = rows[0];
       if (applicant.email) {
         try {
-          const { error } = await resend.emails.send({
-            from: 'onboarding@resend.dev',
+          const msg = {
             to: applicant.email,
+            from: process.env.EMAIL_FROM || 'admissions@example.com', // Ensure this matches your verified SendGrid sender
             subject: `Application Status Update: ${status.toUpperCase()}`,
             html: `<p>Dear ${applicant.firstname} ${applicant.lastname},</p>` +
                   `<p>Your application status has been updated to: <strong>${status}</strong>.</p>` +
                   (note ? `<p>Note from Admissions: ${note}</p>` : '') +
                   `<p>Best regards,<br>Admissions Team</p>`
-          });
-
-          if (error) throw error;
+          };
+          await sgMail.send(msg);
           console.log(`Email notification sent to ${applicant.email}`);
         } catch (emailError) {
           console.error("Failed to send email notification:", emailError);

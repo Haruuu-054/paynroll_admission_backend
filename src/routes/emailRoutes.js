@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { Resend } = require('resend');
+const sgMail = require('@sendgrid/mail');
 const db = require('../config/database');
 const crypto = require('crypto');
 
-const resend = new Resend('re_46kKjnbb_NoYHdMnnTyYKJipDk5CdrK29');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // POST /send-email
 router.post('/send-email', async (req, res) => {
@@ -47,20 +47,16 @@ router.post('/send-email', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Recipient email is required.' });
     }
 
-    const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+    const msg = {
       to: recipientEmail,
+      from: process.env.EMAIL_FROM || 'admissions@example.com', // Ensure this matches your verified SendGrid sender
       subject: subject || 'Message from Admissions Team',
       html: `<p>Dear ${recipientName},</p><p>${note}</p><p>Best regards,<br>Admissions Team</p>`
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    };
+    await sgMail.send(msg);
 
     console.log(`✅ Email sent successfully to ${recipientEmail}`);
     console.log(`📧 Email details:`, {
-      id: data.id,
       subject: subject || 'Message from Admissions Team',
       note: note
     });
