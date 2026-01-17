@@ -4,21 +4,10 @@ const db = require('../config/database');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const crypto = require('crypto');
 
-// Configure Nodemailer
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER || 'paynrollsuper@gmail.com', // Replace with your email
-    pass: process.env.EMAIL_PASS || 'lnno cegy ufpd xcan'     // Replace with your App Password
-  },
-  family: 4, // Force IPv4 to prevent connection timeouts
-  connectionTimeout: 10000 // Fail fast (10s) if connection cannot be established
-});
+const resend = new Resend('re_46kKjnbb_NoYHdMnnTyYKJipDk5CdrK29');
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
@@ -320,18 +309,18 @@ router.patch("/status/:admissionId", async (req, res) => {
     if (rows.length > 0) {
       const applicant = rows[0];
       if (applicant.email) {
-        const mailOptions = {
-          from: 'paynrollsuper@gmail.com', // Sender address
-          to: applicant.email,
-          subject: `Application Status Update: ${status.toUpperCase()}`,
-          text: `Dear ${applicant.firstname} ${applicant.lastname},\n\n` +
-                `Your application status has been updated to: ${status}.\n\n` +
-                (note ? `Note from Admissions: ${note}\n\n` : '') +
-                `Best regards,\nAdmissions Team`
-        };
-
         try {
-          await transporter.sendMail(mailOptions);
+          const { error } = await resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: applicant.email,
+            subject: `Application Status Update: ${status.toUpperCase()}`,
+            html: `<p>Dear ${applicant.firstname} ${applicant.lastname},</p>` +
+                  `<p>Your application status has been updated to: <strong>${status}</strong>.</p>` +
+                  (note ? `<p>Note from Admissions: ${note}</p>` : '') +
+                  `<p>Best regards,<br>Admissions Team</p>`
+          });
+
+          if (error) throw error;
           console.log(`Email notification sent to ${applicant.email}`);
         } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
