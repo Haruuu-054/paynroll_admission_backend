@@ -5,15 +5,14 @@ const emailRoutes = require('./src/routes/emailRoutes');
 app.use('/api/email', emailRoutes);
 
 const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 
-const server = app.listen(PORT, () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
-  console.log(`➜  Local:   http://localhost:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(🚀 Server running on port ${PORT});
 });
 
-// Handle unhandled promise rejections (e.g. database connection failure)
-process.on('unhandledRejection', (err, promise) => {
-  console.log(`Error: ${err.message}`);
-  // Close server & exit process
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err.message);
   server.close(() => process.exit(1));
 });
