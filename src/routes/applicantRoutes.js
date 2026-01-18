@@ -512,6 +512,27 @@ router.post('/upload/2x2/:admission_id',
   (req, res) => handleSingleUpload(req, res, '2x2_picture')
 );
 
+// PATCH endpoints for updating uploaded files
+router.patch('/upload/birth-certificate/:admission_id', 
+  upload.single('birth_certificate'), 
+  (req, res) => handleSingleUpload(req, res, 'birth_certificate')
+);
+
+router.patch('/upload/diploma/:admission_id', 
+  upload.single('diploma'), 
+  (req, res) => handleSingleUpload(req, res, 'form137')
+);
+
+router.patch('/upload/tor/:admission_id', 
+  upload.single('tor'), 
+  (req, res) => handleSingleUpload(req, res, 'shs_transcript')
+);
+
+router.patch('/upload/2x2/:admission_id', 
+  upload.single('picture_2x2'), 
+  (req, res) => handleSingleUpload(req, res, '2x2_picture')
+);
+
 //fetch single document by upload_id
 router.get('/document/:upload_id', async (req, res) => {
   const uploadId = req.params.upload_id;
@@ -698,47 +719,24 @@ const serveFileContent = async (req, res, documentType) => {
   
   try {
     const [results] = await db.query(
-      "SELECT file_path, mime_type FROM applicant_documents WHERE admission_id = ? AND document_type = ? ORDER BY uploaded_at DESC LIMIT 1", 
+      "SELECT file_path FROM applicant_documents WHERE admission_id = ? AND document_type = ? ORDER BY uploaded_at DESC LIMIT 1", 
       [admission_id, documentType]
     );
     
     if (results.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Document not found in database'
-      });
+      return res.status(404).send('Document not found');
     }
     
     const filePath = results[0].file_path;
-    const mimeType = results[0].mime_type;
     
-    // Convert to absolute path using path.resolve()
-    const absolutePath = path.resolve(filePath);
-    
-    // Check if file exists
-    if (!fs.existsSync(absolutePath)) {
-      console.error(`File not found: ${absolutePath}`);
-      return res.status(404).json({
-        success: false,
-        error: 'File not found on server',
-        expectedPath: absolutePath,
-        databasePath: filePath
-      });
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).send('File not found on server');
     }
-    
-    // Set content type
-    res.contentType(mimeType);
-    
-    // Send file with absolute path
-    res.sendFile(absolutePath);
-    
   } catch (err) {
     console.error(`Error serving ${documentType}:`, err);
-    res.status(500).json({
-      success: false,
-      error: 'Error serving file',
-      details: err.message
-    });
+    res.status(500).send('Error serving file');
   }
 };
 
@@ -750,4 +748,3 @@ router.get('/documents/view/tor/:admission_id', (req, res) => serveFileContent(r
 
 
 module.exports = router;
-
