@@ -49,9 +49,9 @@ router.post('/send-email', async (req, res) => {
 
     const msg = {
       to: recipientEmail,
-      from: process.env.EMAIL_FROM || 'houtaruyuki@gmail.com', // Ensure this matches your verified SendGrid sender
+      from: process.env.EMAIL_FROM || 'paynrollsuper@gmail.com', // Ensure this matches your verified SendGrid sender
       subject: subject || 'Message from MSEUF-CI Admission Registrar',
-      html: `<p>Dear ${recipientName},</p><p>${note}</p><p>Best regards,<br>MSEUF-CI Registrar</p>`
+      html: `<p>Dear ${recipientName},</p><p>${note}</p><p>Best regards,<br>Admissions Team</p>`
     };
     await sgMail.send(msg);
 
@@ -161,5 +161,25 @@ router.get('/notes/:admission_id', async (req, res) => {
   }
 });
 
+// PATCH /mark-read/:admission_id - Mark all notifications as read for a specific applicant
+router.patch('/mark-read/:admission_id', async (req, res) => {
+  const { admission_id } = req.params;
+
+  if (!admission_id) {
+    return res.status(400).json({ success: false, message: 'Admission ID is required.' });
+  }
+
+  try {
+    const [result] = await db.query(
+      'UPDATE applicant_notifications SET is_read = 1 WHERE admission_id = ?',
+      [admission_id]
+    );
+
+    res.json({ success: true, message: 'Notifications marked as read.', affectedRows: result.affectedRows });
+  } catch (error) {
+    console.error('Error marking notifications as read:', error);
+    res.status(500).json({ success: false, message: 'Failed to mark notifications as read.', error: error.message });
+  }
+});
 
 module.exports = router;
